@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panth&egrave;re de Cartier &mdash; Interactive Experience</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- Brand header -->
+  <header class="brand-header" id="brand-header">
+    <span class="brand-logo">CARTIER</span>
+    <nav class="brand-nav">
+      <span>Collections</span>
+      <span>High Jewelry</span>
+      <span>Services</span>
+    </nav>
+  </header>
+
+  <!-- Section dots indicator -->
+  <nav class="section-dots" id="section-dots" aria-label="Scroll sections">
+    <div class="dot active" data-section="intro"><span class="dot-label">Intro</span></div>
+    <div class="dot" data-section="origin"><span class="dot-label">The Stone</span></div>
+    <div class="dot" data-section="assembly"><span class="dot-label">Assembly</span></div>
+    <div class="dot" data-section="reveal"><span class="dot-label">Reveal</span></div>
+    <div class="dot" data-section="configure"><span class="dot-label">Configure</span></div>
+    <div class="dot" data-section="finale"><span class="dot-label">Finale</span></div>
+  </nav>
+
+  <!-- Background layers -->
+  <div class="bg-layer bg-boutique" style="opacity: 0;">
+    <img class="bg-media" src="assets/bg-boutique.png" alt="" aria-hidden="true" decoding="async" loading="lazy" />
+  </div>
+  <div class="bg-layer bg-painting" style="opacity: 0;">
+    <picture>
+      <source srcset="assets/bg_painting.webp" type="image/webp" />
+      <img class="bg-media" src="assets/bg_painting.png" alt="" aria-hidden="true" decoding="async" fetchpriority="high" />
+    </picture>
+  </div>
+  <div class="bg-layer bg-space" style="opacity: 0;">
+    <div class="stars-container" id="stars-container"></div>
+  </div>
+  <div class="bg-layer bg-velvet-full" id="bg-velvet-full" style="opacity: 0;">
+    <img class="bg-media" src="assets/bg-velvet.png" alt="" aria-hidden="true" decoding="async" loading="lazy" />
+  </div>
+  <div class="velvet-half velvet-top" id="velvet-top" style="opacity: 0;">
+    <img class="bg-media bg-media-top" src="assets/bg-velvet.png" alt="" aria-hidden="true" decoding="async" loading="lazy" />
+  </div>
+  <div class="velvet-half velvet-bottom" id="velvet-bottom" style="opacity: 0;">
+    <img class="bg-media bg-media-bottom" src="assets/bg-velvet.png" alt="" aria-hidden="true" decoding="async" loading="lazy" />
+  </div>
+  <div class="bg-layer bg-black" id="bg-black"></div>
+
+  <!-- Three.js canvas -->
+  <canvas id="canvas"></canvas>
+
+  <!-- UI overlay layer -->
+  <div class="ui-layer">
+
+    <!-- Loading screen -->
+    <div class="loader-screen" id="loader-screen">
+      <div class="loader-text">PANTH&Egrave;RE DE CARTIER</div>
+      <div class="loader-progress"><div class="loader-progress-bar" id="loader-bar"></div></div>
+      <div class="loader-status" id="loader-status" aria-live="polite">Loading...</div>
+      <div class="scroll-hint" id="scroll-hint">Scroll to begin</div>
+    </div>
+
+    <!-- Chapter titles (appear between stages) -->
+    <div class="chapter-title" id="chapter-origin">
+      <span class="chapter-number">I</span>
+      <span class="chapter-name">A legacy of light since 1914</span>
+    </div>
+    <div class="chapter-title" id="chapter-assembly">
+      <span class="chapter-number">II</span>
+      <span class="chapter-name">137 stones, one story</span>
+    </div>
+    <div class="chapter-title" id="chapter-yours">
+      <span class="chapter-number">III</span>
+      <span class="chapter-name">Make it yours</span>
+    </div>
+
+    <!-- Text overlays -->
+    <div class="text-overlay" id="text-stage2">
+      <div class="poetry-text poetry-stage2">
+        <span class="poetry-line poetry-line-strong">137 brilliant-cut diamonds</span>
+        <span class="poetry-line">1.15 carats of light</span>
+      </div>
+    </div>
+    <div class="text-overlay text-overlay-left" id="text-stage3">
+      <div class="poetry-text poetry-whisper">From stone to story&mdash;</div>
+      <div class="poetry-text poetry-whisper poetry-whisper-delay">each facet placed by hand.</div>
+    </div>
+    <div class="text-overlay text-overlay-right" id="text-stage4">
+      <div class="poetry-text poetry-accent">The Maison&rsquo;s<br>untamed icon</div>
+      <div class="poetry-subline">First tamed by Louis Cartier, 1914</div>
+    </div>
+    <div class="text-overlay" id="text-stage5">
+      <div class="poetry-text poetry-whisper">Make it uniquely yours.</div>
+    </div>
+    <div class="text-overlay" id="text-stage6">
+      <div class="poetry-text poetry-large">Your Panth&egrave;re</div>
+      <div class="poetry-subline poetry-subline-glow">Worn by legends. Now yours to claim.</div>
+    </div>
+
+    <!-- Configurator -->
+    <div class="configurator" id="configurator">
+      <div class="config-group">
+        <div class="config-label">METAL</div>
+        <div class="config-options metal-options">
+          <button class="metal-btn active" data-metal="yellowGold">
+            <span class="swatch" style="background: #C4A265"></span>
+            <span class="label">Yellow Gold</span>
+          </button>
+          <button class="metal-btn" data-metal="roseGold">
+            <span class="swatch" style="background: #B76E6D"></span>
+            <span class="label">Rose Gold</span>
+          </button>
+          <button class="metal-btn" data-metal="whiteGold">
+            <span class="swatch" style="background: #D8D4CC"></span>
+            <span class="label">White Gold</span>
+          </button>
+          <button class="metal-btn" data-metal="platinum">
+            <span class="swatch" style="background: #E0DDD8"></span>
+            <span class="label">Platinum</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="config-group">
+        <div class="config-label">EYES</div>
+        <div class="config-options eye-options">
+          <button class="eye-btn active" data-eye="emerald" aria-label="Emerald eyes">
+            <span class="gem-swatch" style="background: radial-gradient(circle, #0A8C4A, #046A38)"></span>
+          </button>
+          <button class="eye-btn" data-eye="sapphire" aria-label="Sapphire eyes">
+            <span class="gem-swatch" style="background: radial-gradient(circle, #1838A0, #0A2472)"></span>
+          </button>
+          <button class="eye-btn" data-eye="ruby" aria-label="Ruby eyes">
+            <span class="gem-swatch" style="background: radial-gradient(circle, #C0232E, #9B111E)"></span>
+          </button>
+          <button class="eye-btn" data-eye="amethyst" aria-label="Amethyst eyes">
+            <span class="gem-swatch" style="background: radial-gradient(circle, #8B5CC0, #6B3FA0)"></span>
+          </button>
+          <button class="eye-btn" data-eye="tsavorite" aria-label="Tsavorite eyes">
+            <span class="gem-swatch" style="background: radial-gradient(circle, #28A85E, #1B8C4E)"></span>
+          </button>
+        </div>
+        <div class="active-label" id="eye-label">Emerald</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="config-group">
+        <div class="config-label">PAV&Eacute;</div>
+        <div class="config-options">
+          <button class="pave-btn active" data-pave="icyWhite">
+            <span class="swatch" style="background: #F0F5FA"></span>
+            <span class="label">Icy White</span>
+          </button>
+          <button class="pave-btn" data-pave="warmChampagne">
+            <span class="swatch" style="background: #F5E6C8"></span>
+            <span class="label">Warm Champagne</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Product card -->
+    <div class="product-card" id="product-card">
+      <div class="product-header">
+        <div class="brand">PANTH&Egrave;RE DE CARTIER</div>
+        <div class="subtitle">Ring, medium model, half-pav&eacute;</div>
+      </div>
+      <div class="divider-thin"></div>
+      <div class="product-description">
+        <p class="spec">
+          18K <span id="selected-metal">Yellow Gold</span> (750/1000),
+          set with 137 brilliant-cut diamonds
+          totalling 1.15 carats,
+          <span id="selected-eye">emeralds</span>, onyx.
+        </p>
+        <p class="spec-small">Width of the pattern: 11.05 mm (size 52).</p>
+      </div>
+      <div class="divider-thin"></div>
+      <div class="product-poetry">
+        <p>The Maison's untamed icon since 1914.</p>
+        <p>First tamed by Louis Cartier,<br>then elevated to legend<br>by Jeanne Toussaint.</p>
+      </div>
+      <div class="product-meta">
+        <div class="ref">Ref. CRN4225000</div>
+        <div class="price">&euro; 27.800</div>
+      </div>
+      <div class="product-actions">
+        <button class="btn-primary">Add to Bag</button>
+        <a class="btn-link" href="#">Book a Private Viewing &rarr;</a>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Scroll spacer -->
+  <div class="scroll-spacer"></div>
+
+  <!-- Demo footer (only visible at end) -->
+  <div class="demo-footer" id="demo-footer">Concept &amp; Development &mdash; Sajjad Mazaheri</div>
+
+  <script type="module" src="js/main.js"></script>
+
+  <!-- Scroll progress + chapter titles + header visibility -->
+  <script>
+    (function() {
+      const header = document.getElementById('brand-header');
+      const footer = document.getElementById('demo-footer');
+      const dotsNav = document.getElementById('section-dots');
+      const dots = dotsNav ? dotsNav.querySelectorAll('.dot') : [];
+      const chapters = {
+        origin:   { el: document.getElementById('chapter-origin'),   start: 0.14, end: 0.22 },
+        assembly: { el: document.getElementById('chapter-assembly'), start: 0.44, end: 0.52 },
+        yours:    { el: document.getElementById('chapter-yours'),    start: 0.655, end: 0.685 },
+      };
+
+      // section ranges for dot indicator
+      const sections = [
+        { key: 'intro',     end: 0.16 },
+        { key: 'origin',    end: 0.40 },
+        { key: 'assembly',  end: 0.58 },
+        { key: 'reveal',    end: 0.72 },
+        { key: 'configure', end: 0.90 },
+        { key: 'finale',    end: 1.01 },
+      ];
+
+      function update() {
+        var spacer = document.querySelector('.scroll-spacer');
+        if (!spacer) return requestAnimationFrame(update);
+        var maxScroll = Math.max(1, spacer.offsetHeight - window.innerHeight);
+        var scrollTop = window.scrollY || document.documentElement.scrollTop;
+        var p = Math.max(0, Math.min(1, scrollTop / maxScroll));
+
+        // section dots
+        if (dotsNav) {
+          var show = p > 0.02 && p < 0.97;
+          dotsNav.style.opacity = show ? '1' : '0';
+          dotsNav.style.pointerEvents = show ? 'auto' : 'none';
+          var activeIdx = 0;
+          for (var i = 0; i < sections.length; i++) {
+            if (p < sections[i].end) { activeIdx = i; break; }
+          }
+          dots.forEach(function(dot, idx) {
+            dot.classList.toggle('active', idx === activeIdx);
+            dot.classList.toggle('passed', idx < activeIdx);
+          });
+        }
+
+        // header: visible early on, hidden during immersive stages AND final product card
+        if (header) {
+          var hShow = p > 0.02 && p < 0.16;
+          header.style.opacity = hShow ? '1' : '0';
+          header.style.pointerEvents = hShow ? 'auto' : 'none';
+        }
+
+        // footer
+        if (footer) {
+          footer.style.opacity = p > 0.96 ? '1' : '0';
+        }
+
+        // chapter titles
+        for (var key in chapters) {
+          var ch = chapters[key];
+          if (!ch.el) continue;
+          ch.el.classList.toggle('active', p >= ch.start && p < ch.end);
+        }
+
+        requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    })();
+  </script>
+</body>
+</html>
