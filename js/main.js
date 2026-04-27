@@ -11,6 +11,7 @@ import { initPaperTear } from './paper-tear.js';
 import { initStageOnePainting, updateStageOnePainting, getPaintingShrinkProgress } from './stage1-painting-scrub.js';
 import { initVelvetMorphBackground } from './velvet-morph-background.js';
 import { updateBackgrounds } from './backgrounds.js';
+import { PAVE } from './materials.js';
 import { mapRange, mapSmoothRange, smooth01, easeBackOut } from './utils.js';
 
 // state 
@@ -52,9 +53,42 @@ const STAGE_ONE_DIAMOND_SWAP_SCALE = 0.62;
 const STAGE_ONE_DIAMOND_GATHER_SCALE = 1.12;
 const STAGE_TWO_INTERACTIVE_END = 0.518;
 const RING_MODEL_SCALE_MULTIPLIER = 0.7;
+const CONFIGURATOR_RING_SCALE = 1.34;
 const STAGE4_EYE_REVEAL_YAW = -1.2;
 const OPTIONAL_INIT_TIMEOUT_MS = 7000;
 const CORE_INIT_TIMEOUT_MS = 18000;
+const DIAMOND_PAINTING_TINT = new THREE.Color(0xf5e2b8);
+const DIAMOND_PAINTING_EMISSIVE = new THREE.Color(0xc89040);
+const DIAMOND_RING_GLASS_PROFILE = {
+  transmission: 1.0,
+  ior: 2.4,
+  thickness: 1.24,
+  roughness: 0.008,
+  envMapBoost: 1.34,
+  emissiveIntensity: 0.0012,
+  attenuationDistanceBoost: 12,
+  clearcoat: 0.01,
+  clearcoatRoughness: 0.012,
+  specularBoost: 1.45,
+  colorBlend: 0.24,
+  emissiveBlend: 0.1,
+  attenuationBlend: 0.34,
+  specularBlend: 0.22,
+};
+const DIAMOND_RING_GLASS_TINTS = {
+  icyWhite: {
+    color: new THREE.Color(0xffffff),
+    emissive: new THREE.Color(0xfafdff),
+    attenuationColor: new THREE.Color(0xf6fbff),
+    specularColor: new THREE.Color(0xffffff),
+  },
+  warmChampagne: {
+    color: new THREE.Color(0xf7ead6),
+    emissive: new THREE.Color(0xfff2df),
+    attenuationColor: new THREE.Color(0xffecd2),
+    specularColor: new THREE.Color(0xfffaef),
+  },
+};
 
 // scroll ranges - single source of truth
 export const STAGE_FLOW = {
@@ -85,6 +119,16 @@ const defaultCameraPos = new THREE.Vector3(0, 0, 5);
 
 // isolated diamond for stages 1-2
 let isolatedDiamond = null;
+const isolatedDiamondMaterialBase = {
+  color: new THREE.Color(0xffffff),
+  emissive: new THREE.Color(0x000000),
+  emissiveIntensity: 0,
+  envMapIntensity: 1,
+};
+const ringDiamondBaseColor = new THREE.Color();
+const ringDiamondBaseEmissive = new THREE.Color();
+const ringDiamondBaseSpecular = new THREE.Color();
+const ringDiamondBaseAttenuation = new THREE.Color();
 const projectedAnchor = new THREE.Vector3();
 const worldTempA = new THREE.Vector3();
 const worldTempB = new THREE.Vector3();
@@ -210,6 +254,101 @@ function setEyeScale(mesh, factor) {
   if (!mesh) return;
   const base = mesh.userData.baseScale || worldTempScale.setScalar(1);
   mesh.scale.copy(base).multiplyScalar(factor);
+}
+
+function getRingDiamondGlassiness(p) {
+  return mapSmoothRange(p, 0.615, 0.735);
+}
+
+function updateRingDiamondMaterial(p) {
+  const material = ringState.diamondMaterial;
+  const baseConfig = PAVE[ringState.currentPave] || PAVE.icyWhite;
+  if (!material || !baseConfig) return;
+
+  const glassT = getRingDiamondGlassiness(p);
+  const glassTone = DIAMOND_RING_GLASS_TINTS[ringState.currentPave] || DIAMOND_RING_GLASS_TINTS.icyWhite;
+
+  ringDiamondBaseColor.set(baseConfig.color);
+  ringDiamondBaseEmissive.set(baseConfig.emissive);
+  ringDiamondBaseSpecular.set(baseConfig.specularColor);
+  ringDiamondBaseAttenuation.set(baseConfig.attenuationColor);
+
+  material.color.lerpColors(
+    ringDiamondBaseColor,
+    glassTone.color,
+    glassT * DIAMOND_RING_GLASS_PROFILE.colorBlend,
+  );
+  if (material.emissive) {
+    material.emissive.lerpColors(
+      ringDiamondBaseEmissive,
+      glassTone.emissive,
+      glassT * DIAMOND_RING_GLASS_PROFILE.emissiveBlend,
+    );
+  }
+  if (material.specularColor) {
+    material.specularColor.lerpColors(
+      ringDiamondBaseSpecular,
+      glassTone.specularColor,
+      glassT * DIAMOND_RING_GLASS_PROFILE.specularBlend,
+    );
+  }
+  if (material.attenuationColor) {
+    material.attenuationColor.lerpColors(
+      ringDiamondBaseAttenuation,
+      glassTone.attenuationColor,
+      glassT * DIAMOND_RING_GLASS_PROFILE.attenuationBlend,
+    );
+  }
+
+  material.transmission = THREE.MathUtils.lerp(baseConfig.transmission, DIAMOND_RING_GLASS_PROFILE.transmission, glassT);
+  material.ior = THREE.MathUtils.lerp(baseConfig.ior, DIAMOND_RING_GLASS_PROFILE.ior, glassT);
+  material.thickness = THREE.MathUtils.lerp(baseConfig.thickness, DIAMOND_RING_GLASS_PROFILE.thickness, glassT);
+  material.roughness = THREE.MathUtils.lerp(baseConfig.roughness, DIAMOND_RING_GLASS_PROFILE.roughness, glassT);
+  material.envMapIntensity = THREE.MathUtils.lerp(
+    baseConfig.envMapIntensity,
+    baseConfig.envMapIntensity * DIAMOND_RING_GLASS_PROFILE.envMapBoost,
+    glassT,
+  );
+  material.emissiveIntensity = THREE.MathUtils.lerp(baseConfig.emissiveIntensity, DIAMOND_RING_GLASS_PROFILE.emissiveIntensity, glassT);
+  material.attenuationDistance = THREE.MathUtils.lerp(
+    baseConfig.attenuationDistance,
+    baseConfig.attenuationDistance * DIAMOND_RING_GLASS_PROFILE.attenuationDistanceBoost,
+    glassT,
+  );
+  material.clearcoat = THREE.MathUtils.lerp(baseConfig.clearcoat, DIAMOND_RING_GLASS_PROFILE.clearcoat, glassT);
+  material.clearcoatRoughness = THREE.MathUtils.lerp(baseConfig.clearcoatRoughness, DIAMOND_RING_GLASS_PROFILE.clearcoatRoughness, glassT);
+  material.specularIntensity = THREE.MathUtils.lerp(
+    baseConfig.specularIntensity,
+    baseConfig.specularIntensity * DIAMOND_RING_GLASS_PROFILE.specularBoost,
+    glassT,
+  );
+}
+
+function cacheIsolatedDiamondMaterialBase(material) {
+  if (!material) return;
+  if (material.color) isolatedDiamondMaterialBase.color.copy(material.color);
+  else isolatedDiamondMaterialBase.color.set(0xffffff);
+  if (material.emissive) isolatedDiamondMaterialBase.emissive.copy(material.emissive);
+  else isolatedDiamondMaterialBase.emissive.set(0x000000);
+  isolatedDiamondMaterialBase.emissiveIntensity = material.emissiveIntensity ?? 0;
+  isolatedDiamondMaterialBase.envMapIntensity = material.envMapIntensity ?? 1;
+}
+
+function setIsolatedDiamondLook({ warmth = 0, glow = 0, reflectionBoost = 0 } = {}) {
+  if (!isolatedDiamond?.material) return;
+  const material = isolatedDiamond.material;
+  material.color.copy(isolatedDiamondMaterialBase.color).lerp(
+    DIAMOND_PAINTING_TINT,
+    THREE.MathUtils.clamp(warmth, 0, 1),
+  );
+  if (material.emissive) {
+    material.emissive.copy(isolatedDiamondMaterialBase.emissive).lerp(
+      DIAMOND_PAINTING_EMISSIVE,
+      THREE.MathUtils.clamp(warmth * 0.7 + glow * 0.25, 0, 1),
+    );
+  }
+  material.emissiveIntensity = isolatedDiamondMaterialBase.emissiveIntensity + glow;
+  material.envMapIntensity = isolatedDiamondMaterialBase.envMapIntensity * (1 + reflectionBoost);
 }
 
 // ── reveal halo (glow sprite behind diamond) ──
@@ -357,25 +496,9 @@ function setupIsolatedDiamond() {
   const ref = ringState.anchorDiamond || ringState.diamonds[0];
   isolatedDiamond = ref.clone();
   isolatedDiamond.material = ringState.diamondMaterial.clone();
-  // warm amber base so it sits naturally in the candlelit painting
-  isolatedDiamond.material.color.set(0xf5e2b8);
+  cacheIsolatedDiamondMaterialBase(isolatedDiamond.material);
   isolatedDiamond.material.transparent = true;
   isolatedDiamond.material.opacity = 1;
-  isolatedDiamond.material.transmission = 0.04;
-  isolatedDiamond.material.ior = 2.18;
-  isolatedDiamond.material.thickness = 0.42;
-  isolatedDiamond.material.roughness = 0.04;
-  isolatedDiamond.material.envMapIntensity = (isolatedDiamond.material.envMapIntensity || 1) * 0.65;
-  isolatedDiamond.material.clearcoat = 0.02;
-  isolatedDiamond.material.clearcoatRoughness = 0.04;
-  isolatedDiamond.material.emissive.set(0xc89040);
-  isolatedDiamond.material.emissiveIntensity = 0.035;
-  isolatedDiamond.material.specularIntensity = 1.2;
-  isolatedDiamond.material.specularColor = new THREE.Color(0xffeebb);
-  isolatedDiamond.material.attenuationColor = new THREE.Color(0xf0d090);
-  isolatedDiamond.material.attenuationDistance = 2.0;
-  isolatedDiamond.material.iridescence = 0;
-  isolatedDiamond.material.sheen = 0;
   isolatedDiamond.visible = false;
   const bs = ringState.baseScale || 1;
   isolatedDiamond.scale.setScalar(STAGE_ONE_DIAMOND_HOLD_SCALE * bs);
@@ -404,6 +527,7 @@ function animate() {
     updateStage6(p);
     updateStage7(p);
     updateStage8(p);
+    updateRingDiamondMaterial(p);
     updateBackgrounds(p, mouse, camera, STAGE_FLOW, getMorphAnchorPercent);
     updateGoldParticles();
 
@@ -473,15 +597,16 @@ function updateStage1(p, mouse) {
     isolatedDiamond.rotation.x += (0 - isolatedDiamond.rotation.x) * 0.08;
     isolatedDiamond.rotation.z += (0 - isolatedDiamond.rotation.z) * 0.08;
     isolatedDiamond.material.opacity = Math.pow(swapT, 1.15);
-    isolatedDiamond.material.emissiveIntensity = 0.035 + swapT * 0.01;
 
     const haloT = smooth01(mapRange(p, 0.154, 0.208));
     const touch = getObjectScreenHover(isolatedDiamond, mouse, 0.12);
     isolatedDiamond.getWorldPosition(worldTempA);
     const sparkle = touch * (0.74 + 0.26 * Math.sin(performance.now() * 0.024));
-    isolatedDiamond.material.clearcoat = THREE.MathUtils.lerp(0.03, 0.055, touch);
-    isolatedDiamond.material.envMapIntensity = THREE.MathUtils.lerp(1.95, 2.22, touch);
-    isolatedDiamond.material.specularIntensity = THREE.MathUtils.lerp(1.78, 2.08, touch);
+    setIsolatedDiamondLook({
+      warmth: THREE.MathUtils.lerp(0.34, 0.22, swapT),
+      glow: 0.018 + swapT * 0.01,
+      reflectionBoost: sparkle * 0.08,
+    });
     setRevealHalo(isolatedDiamond.position, haloT * 0.08 + sparkle * 0.14, 0.08 + haloT * 0.12 + sparkle * 0.08);
   } else {
     const haloT = smooth01(mapRange(p, 0.154, 0.208));
@@ -570,15 +695,11 @@ function updateStage2(p, mouse) {
 
   // warm amber while on painting, transitions to clear as diamond extracts
   const warmth = THREE.MathUtils.clamp(1 - extractT * 1.4, 0, 1);
-  isolatedDiamond.material.color.lerpColors(
-    new THREE.Color(0xfafafa), new THREE.Color(0xf5e2b8), warmth,
-  );
-  isolatedDiamond.material.emissiveIntensity = warmth * 0.035 + stageTouch * 0.006;
-  isolatedDiamond.material.envMapIntensity = THREE.MathUtils.lerp(0.65, 1.8, extractT) + stageTouch * 0.3;
-  isolatedDiamond.material.roughness = THREE.MathUtils.lerp(0.04, 0.01, extractT);
-  isolatedDiamond.material.transmission = THREE.MathUtils.lerp(0.04, 0.1, extractT);
-  isolatedDiamond.material.clearcoat = THREE.MathUtils.lerp(0.02, 0.04, extractT) + stageTouch * 0.02;
-  isolatedDiamond.material.specularIntensity = THREE.MathUtils.lerp(1.2, 1.9, extractT);
+  setIsolatedDiamondLook({
+    warmth: warmth * 0.38,
+    glow: warmth * 0.03 + stageTouch * 0.006,
+    reflectionBoost: THREE.MathUtils.lerp(-0.18, 0.1, extractT) + stageTouch * 0.08,
+  });
 
   if (p > 0.248 && p < STAGE_TWO_INTERACTIVE_END && videoT > 0.05) showText('text-stage2');
   else hideText('text-stage2');
@@ -639,10 +760,11 @@ function updateStage3(p, mouse) {
       isolatedDiamond.rotation.x += ((baseRotX + hoverRotX) - isolatedDiamond.rotation.x) * 0.08;
       isolatedDiamond.rotation.z += ((baseRotZ + hoverRotZ) - isolatedDiamond.rotation.z) * 0.08;
       isolatedDiamond.material.opacity = THREE.MathUtils.lerp(1, 0.08, fadeT);
-      if (touch > 0.001) {
-        isolatedDiamond.material.clearcoat = THREE.MathUtils.lerp(0.03, 0.05, touch);
-        isolatedDiamond.material.envMapIntensity = THREE.MathUtils.lerp(2.0, 2.22, touch);
-      }
+      setIsolatedDiamondLook({
+        warmth: (1 - fadeT) * 0.12,
+        glow: (1 - fadeT) * 0.012,
+        reflectionBoost: touch * 0.06,
+      });
       setRevealHalo(isolatedDiamond.position, 0.62 * (1 - fadeT) + touch * 0.1, 0.38 + (1 - fadeT) * 0.42 + touch * 0.05);
     } else {
       isolatedDiamond.visible = false;
@@ -758,7 +880,7 @@ function updateStage5(p, mouse) {
   if (ringState.model) {
     ringState.model.position.x = THREE.MathUtils.lerp(0, ringTargetX, moveT);
     ringState.model.position.y = THREE.MathUtils.lerp(0, ringTargetY, moveT);
-    ringState.model.scale.setScalar(THREE.MathUtils.lerp(1.0, 1.61, moveT) * bs);
+    ringState.model.scale.setScalar(THREE.MathUtils.lerp(1.0, CONFIGURATOR_RING_SCALE, moveT) * bs);
   }
 
   if (!orbitActive) {

@@ -44,6 +44,7 @@ export function loadRing(url, scene, { onProgress } = {}) {
     ringState.anchorDiamond = null;
     ringState.eyeLeft = null;
     ringState.eyeRight = null;
+    ringState.diamondMaterial = null;
     ringState.physicsDiamonds = [];
 
     loader.load(
